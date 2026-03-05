@@ -130,6 +130,16 @@ section[data-testid="stSidebar"] > div {
   margin-bottom: 8px;
 }
 
+.qe-grid-label {
+  font-size: 0.83rem;
+  color: #53706E;
+  margin-bottom: 4px;
+}
+
+.qe-actions {
+  margin-top: 6px;
+}
+
 /* 按钮：主按钮蓝色渐变，圆角 */
 .stButton > button {
   border-radius: 12px !important;
@@ -248,80 +258,6 @@ with st.sidebar:
     st.caption("配置你的检索、重排与查询增强策略")
 
     st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">检索与重排配置</div>', unsafe_allow_html=True)
-
-    # RAG检索配置区域
-    # 1. 检索数量控制
-    retrieve_k = st.slider(
-        "初始检索文档数量 (retrieve_k)",
-        min_value=1, max_value=10, value=st.session_state.retrieve_k, step=1,
-        help="从向量库中初始检索的文档数量，数量越多覆盖范围越广，但可能引入噪音"
-    )
-
-    # 2. 重排功能开关
-    enable_reranker = st.toggle(
-        "开启检索结果重排",
-        value=st.session_state.enable_reranker,
-        help="开启后会对检索到的文档进行语义重排序，提升回答质量，但会增加响应时间"
-    )
-
-    # 3. 重排后保留数量（仅在开启重排时可配置）
-    rerank_top_n = st.slider(
-        "重排后保留文档数量 (rerank_top_n)",
-        min_value=1, max_value=8, value=st.session_state.rerank_top_n, step=1,
-        help="重排后最终保留的文档数量，需小于等于初始检索数量",
-        disabled=not enable_reranker  # 关闭重排时禁用该参数
-    )
-
-    # 限制rerank_top_n不超过retrieve_k
-    if rerank_top_n > retrieve_k:
-        rerank_top_n = retrieve_k
-        st.warning(f"重排保留数量自动调整为 {retrieve_k}（不超过初始检索数量）")
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">查询增强配置</div>', unsafe_allow_html=True)
-    enable_concept_expansion = st.toggle(
-        "开启概念抽取增强检索",
-        value=st.session_state.enable_concept_expansion,
-        help="先用LLM抽取查询中的关键概念，再与原查询联合检索，提高召回覆盖"
-    )
-    concept_count = st.slider(
-        "概念抽取数量",
-        min_value=1, max_value=8, value=st.session_state.concept_count, step=1,
-        disabled=not enable_concept_expansion,
-        help="控制LLM从问题中抽取的概念个数"
-    )
-    compare_with_raw_query = st.toggle(
-        "双路对比择优（有概念 vs 无概念）",
-        value=st.session_state.compare_with_raw_query,
-        disabled=not enable_concept_expansion,
-        help="开启后将分别生成两份答案，并由LLM自动选择更优答案输出"
-    )
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    if st.button("🚀 应用配置", use_container_width=True, type="primary"):
-        # 更新会话状态
-        st.session_state.enable_reranker = enable_reranker
-        st.session_state.retrieve_k = retrieve_k
-        st.session_state.rerank_top_n = rerank_top_n
-        st.session_state.enable_concept_expansion = enable_concept_expansion
-        st.session_state.concept_count = concept_count
-        st.session_state.compare_with_raw_query = compare_with_raw_query
-
-        # 更新RAGService的配置
-        st.session_state.rag_service.enable_reranker = enable_reranker
-        st.session_state.rag_service.retrieve_k = retrieve_k
-        st.session_state.rag_service.rerank_top_n = rerank_top_n
-        st.session_state.rag_service.enable_concept_expansion = enable_concept_expansion
-        st.session_state.rag_service.concept_count = concept_count
-        st.session_state.rag_service.compare_with_raw_query = compare_with_raw_query
-
-        st.success("配置已更新生效！")
-
-    st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">文档管理</div>', unsafe_allow_html=True)
     # 1. 多文件上传（支持PDF/DOCX/TXT/MD，与RAGService支持的格式一致）
     uploaded_files = st.file_uploader(
@@ -347,6 +283,136 @@ with st.sidebar:
             st.session_state.history = []
             st.success("知识库已成功清空")
     st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">检索与重排配置</div>', unsafe_allow_html=True)
+
+    retrieve_k = st.slider(
+        "初始检索文档数量 (retrieve_k)",
+        min_value=1, max_value=10, value=st.session_state.retrieve_k, step=1,
+        help="从向量库中初始检索的文档数量，数量越多覆盖范围越广，但可能引入噪音"
+    )
+
+    enable_reranker = st.toggle(
+        "开启检索结果重排",
+        value=st.session_state.enable_reranker,
+        help="开启后会对检索到的文档进行语义重排序，提升回答质量，但会增加响应时间"
+    )
+
+    rerank_top_n = st.slider(
+        "重排后保留文档数量 (rerank_top_n)",
+        min_value=1, max_value=8, value=st.session_state.rerank_top_n, step=1,
+        help="重排后最终保留的文档数量，需小于等于初始检索数量",
+        disabled=not enable_reranker
+    )
+
+    if rerank_top_n > retrieve_k:
+        rerank_top_n = retrieve_k
+        st.warning(f"重排保留数量自动调整为 {retrieve_k}（不超过初始检索数量）")
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">查询增强配置</div>', unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown('<div class="qe-grid-label">召回候选 (hits)</div>', unsafe_allow_html=True)
+        retrieve_k_new = st.number_input(
+            "召回候选 (hits)",
+            min_value=1,
+            max_value=20,
+            value=int(st.session_state.retrieve_k),
+            step=1,
+            label_visibility="collapsed",
+        )
+        st.markdown('<div class="qe-grid-label">QE 证据数 (keep)</div>', unsafe_allow_html=True)
+        concept_count = st.number_input(
+            "QE 证据数 (keep)",
+            min_value=1,
+            max_value=8,
+            value=int(st.session_state.concept_count),
+            step=1,
+            label_visibility="collapsed",
+            disabled=not st.session_state.enable_concept_expansion,
+        )
+        st.markdown('<div class="qe-grid-label">重排池 (topn)</div>', unsafe_allow_html=True)
+        retrieve_k = st.number_input(
+            "重排池 (topn)",
+            min_value=1,
+            max_value=20,
+            value=int(retrieve_k_new),
+            step=1,
+            label_visibility="collapsed",
+        )
+    with col2:
+        st.markdown('<div class="qe-grid-label">返回证据 (topk)</div>', unsafe_allow_html=True)
+        rerank_top_n = st.number_input(
+            "返回证据 (topk)",
+            min_value=1,
+            max_value=10,
+            value=int(st.session_state.rerank_top_n),
+            step=1,
+            label_visibility="collapsed",
+            disabled=not st.session_state.enable_reranker,
+        )
+        st.markdown('<div class="qe-grid-label">扩展候选 (gen)</div>', unsafe_allow_html=True)
+        _ = st.number_input(
+            "扩展候选 (gen)",
+            min_value=1,
+            max_value=8,
+            value=int(st.session_state.concept_count),
+            step=1,
+            label_visibility="collapsed",
+            disabled=not st.session_state.enable_concept_expansion,
+        )
+        st.markdown('<div class="qe-grid-label">上下文总数</div>', unsafe_allow_html=True)
+        _ = st.number_input(
+            "上下文总数",
+            min_value=1,
+            max_value=10,
+            value=max(1, int(st.session_state.rerank_top_n // 2) or 1),
+            step=1,
+            label_visibility="collapsed",
+        )
+
+    enable_concept_expansion = st.checkbox("QE 纠错", value=st.session_state.enable_concept_expansion)
+    enable_reranker = st.checkbox("重排", value=st.session_state.enable_reranker)
+    compare_with_raw_query = st.checkbox(
+        "多轮上下文",
+        value=st.session_state.compare_with_raw_query,
+        disabled=not enable_concept_expansion,
+    )
+
+    if rerank_top_n > retrieve_k:
+        rerank_top_n = retrieve_k
+        st.warning(f"返回证据数量自动调整为 {retrieve_k}（不超过重排池）")
+
+    st.markdown('<div class="qe-actions">', unsafe_allow_html=True)
+    reset_query_settings = st.button("配置已应用", use_container_width=True, type="secondary")
+    apply_query_settings = st.button("应用配置", use_container_width=True, type="primary")
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    if reset_query_settings:
+        st.success("当前会话配置已载入")
+
+    if apply_query_settings:
+        st.session_state.enable_reranker = enable_reranker
+        st.session_state.retrieve_k = retrieve_k
+        st.session_state.rerank_top_n = rerank_top_n
+        st.session_state.enable_concept_expansion = enable_concept_expansion
+        st.session_state.concept_count = concept_count
+        st.session_state.compare_with_raw_query = compare_with_raw_query
+
+        st.session_state.rag_service.enable_reranker = enable_reranker
+        st.session_state.rag_service.retrieve_k = retrieve_k
+        st.session_state.rag_service.rerank_top_n = rerank_top_n
+        st.session_state.rag_service.enable_concept_expansion = enable_concept_expansion
+        st.session_state.rag_service.concept_count = concept_count
+        st.session_state.rag_service.compare_with_raw_query = compare_with_raw_query
+
+        st.success("配置已更新生效！")
 
 # 主界面 - 聊天区域
 st.markdown(
@@ -406,4 +472,3 @@ if user_input:
             # 步骤3：将完整的助手回答添加到会话历史，供下次刷新时展示
             st.session_state.history.append({"role": "assistant", "content": full_answer})
             st.rerun()
-
