@@ -258,39 +258,6 @@ with st.sidebar:
     st.caption("配置你的检索、重排与查询增强策略")
 
     st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">检索与重排配置</div>', unsafe_allow_html=True)
-
-    # RAG检索配置区域
-    # 1. 检索数量控制
-    retrieve_k = st.slider(
-        "初始检索文档数量 (retrieve_k)",
-        min_value=1, max_value=10, value=st.session_state.retrieve_k, step=1,
-        help="从向量库中初始检索的文档数量，数量越多覆盖范围越广，但可能引入噪音"
-    )
-
-    # 2. 重排功能开关
-    enable_reranker = st.toggle(
-        "开启检索结果重排",
-        value=st.session_state.enable_reranker,
-        help="开启后会对检索到的文档进行语义重排序，提升回答质量，但会增加响应时间"
-    )
-
-    # 3. 重排后保留数量（仅在开启重排时可配置）
-    rerank_top_n = st.slider(
-        "重排后保留文档数量 (rerank_top_n)",
-        min_value=1, max_value=8, value=st.session_state.rerank_top_n, step=1,
-        help="重排后最终保留的文档数量，需小于等于初始检索数量",
-        disabled=not enable_reranker  # 关闭重排时禁用该参数
-    )
-
-    # 限制rerank_top_n不超过retrieve_k
-    if rerank_top_n > retrieve_k:
-        rerank_top_n = retrieve_k
-        st.warning(f"重排保留数量自动调整为 {retrieve_k}（不超过初始检索数量）")
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">查询增强配置</div>', unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
@@ -366,17 +333,45 @@ with st.sidebar:
         rerank_top_n = retrieve_k
         st.warning(f"返回证据数量自动调整为 {retrieve_k}（不超过重排池）")
 
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">检索与重排配置</div>', unsafe_allow_html=True)
+
+    retrieve_k = st.slider(
+        "初始检索文档数量 (retrieve_k)",
+        min_value=1, max_value=10, value=st.session_state.retrieve_k, step=1,
+        help="从向量库中初始检索的文档数量，数量越多覆盖范围越广，但可能引入噪音"
+    )
+
+    enable_reranker = st.toggle(
+        "开启检索结果重排",
+        value=st.session_state.enable_reranker,
+        help="开启后会对检索到的文档进行语义重排序，提升回答质量，但会增加响应时间"
+    )
+
+    rerank_top_n = st.slider(
+        "重排后保留文档数量 (rerank_top_n)",
+        min_value=1, max_value=8, value=st.session_state.rerank_top_n, step=1,
+        help="重排后最终保留的文档数量，需小于等于初始检索数量",
+        disabled=not enable_reranker
+    )
+
+    if rerank_top_n > retrieve_k:
+        rerank_top_n = retrieve_k
+        st.warning(f"重排保留数量自动调整为 {retrieve_k}（不超过初始检索数量）")
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
     st.markdown('<div class="qe-actions">', unsafe_allow_html=True)
     reset_query_settings = st.button("配置已应用", use_container_width=True, type="secondary")
     apply_query_settings = st.button("应用配置", use_container_width=True, type="primary")
-    st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     if reset_query_settings:
         st.success("当前会话配置已载入")
 
     if apply_query_settings:
-        # 更新会话状态
         st.session_state.enable_reranker = enable_reranker
         st.session_state.retrieve_k = retrieve_k
         st.session_state.rerank_top_n = rerank_top_n
@@ -384,7 +379,6 @@ with st.sidebar:
         st.session_state.concept_count = concept_count
         st.session_state.compare_with_raw_query = compare_with_raw_query
 
-        # 更新RAGService的配置
         st.session_state.rag_service.enable_reranker = enable_reranker
         st.session_state.rag_service.retrieve_k = retrieve_k
         st.session_state.rag_service.rerank_top_n = rerank_top_n
