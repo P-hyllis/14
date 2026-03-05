@@ -258,6 +258,61 @@ with st.sidebar:
     st.caption("配置你的检索、重排与查询增强策略")
 
     st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">文档管理</div>', unsafe_allow_html=True)
+    # 1. 多文件上传（支持PDF/DOCX/TXT/MD，与RAGService支持的格式一致）
+    uploaded_files = st.file_uploader(
+        "📂 上传课程资料\n支持 PDF / DOCX / TXT / MD\n拖拽文件到此处或点击上传",
+        accept_multiple_files=True,
+        key=f"file_uploader_{st.session_state.upload_key}"  # 动态生成key
+    )
+    # 处理上传的文件：调用RAGService的process_document方法，完成“解析→分块→向量化→入库”
+    if uploaded_files:
+        with st.spinner("正在处理文档..."):
+            for file in uploaded_files:
+                st.session_state.rag_service.process_document(file)
+            st.success(f"已成功处理 {len(uploaded_files)} 个文档")
+            # 处理完成后重置上传框：通过改变key值实现
+            st.session_state.upload_key += 1
+
+    # 2. 清空知识库（删除向量库数据+清空聊天历史，重置整个问答环境）
+    if st.button("清空知识库", type="secondary", use_container_width=True):
+        with st.spinner("正在清空知识库..."):
+            # 清空向量存储
+            st.session_state.rag_service.clear_database()
+            # 清空聊天历史
+            st.session_state.history = []
+            st.success("知识库已成功清空")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">检索与重排配置</div>', unsafe_allow_html=True)
+
+    retrieve_k = st.slider(
+        "初始检索文档数量 (retrieve_k)",
+        min_value=1, max_value=10, value=st.session_state.retrieve_k, step=1,
+        help="从向量库中初始检索的文档数量，数量越多覆盖范围越广，但可能引入噪音"
+    )
+
+    enable_reranker = st.toggle(
+        "开启检索结果重排",
+        value=st.session_state.enable_reranker,
+        help="开启后会对检索到的文档进行语义重排序，提升回答质量，但会增加响应时间"
+    )
+
+    rerank_top_n = st.slider(
+        "重排后保留文档数量 (rerank_top_n)",
+        min_value=1, max_value=8, value=st.session_state.rerank_top_n, step=1,
+        help="重排后最终保留的文档数量，需小于等于初始检索数量",
+        disabled=not enable_reranker
+    )
+
+    if rerank_top_n > retrieve_k:
+        rerank_top_n = retrieve_k
+        st.warning(f"重排保留数量自动调整为 {retrieve_k}（不超过初始检索数量）")
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">查询增强配置</div>', unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
@@ -333,39 +388,10 @@ with st.sidebar:
         rerank_top_n = retrieve_k
         st.warning(f"返回证据数量自动调整为 {retrieve_k}（不超过重排池）")
 
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">检索与重排配置</div>', unsafe_allow_html=True)
-
-    retrieve_k = st.slider(
-        "初始检索文档数量 (retrieve_k)",
-        min_value=1, max_value=10, value=st.session_state.retrieve_k, step=1,
-        help="从向量库中初始检索的文档数量，数量越多覆盖范围越广，但可能引入噪音"
-    )
-
-    enable_reranker = st.toggle(
-        "开启检索结果重排",
-        value=st.session_state.enable_reranker,
-        help="开启后会对检索到的文档进行语义重排序，提升回答质量，但会增加响应时间"
-    )
-
-    rerank_top_n = st.slider(
-        "重排后保留文档数量 (rerank_top_n)",
-        min_value=1, max_value=8, value=st.session_state.rerank_top_n, step=1,
-        help="重排后最终保留的文档数量，需小于等于初始检索数量",
-        disabled=not enable_reranker
-    )
-
-    if rerank_top_n > retrieve_k:
-        rerank_top_n = retrieve_k
-        st.warning(f"重排保留数量自动调整为 {retrieve_k}（不超过初始检索数量）")
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
     st.markdown('<div class="qe-actions">', unsafe_allow_html=True)
     reset_query_settings = st.button("配置已应用", use_container_width=True, type="secondary")
     apply_query_settings = st.button("应用配置", use_container_width=True, type="primary")
+    st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     if reset_query_settings:
@@ -387,33 +413,6 @@ with st.sidebar:
         st.session_state.rag_service.compare_with_raw_query = compare_with_raw_query
 
         st.success("配置已更新生效！")
-
-    st.markdown('<div class="sidebar-card">', unsafe_allow_html=True)
-    st.markdown('<div class="section-title">文档管理</div>', unsafe_allow_html=True)
-    # 1. 多文件上传（支持PDF/DOCX/TXT/MD，与RAGService支持的格式一致）
-    uploaded_files = st.file_uploader(
-        "📂 上传课程资料\n支持 PDF / DOCX / TXT / MD\n拖拽文件到此处或点击上传",
-        accept_multiple_files=True,
-        key=f"file_uploader_{st.session_state.upload_key}"  # 动态生成key
-    )
-    # 处理上传的文件：调用RAGService的process_document方法，完成“解析→分块→向量化→入库”
-    if uploaded_files:
-        with st.spinner("正在处理文档..."):
-            for file in uploaded_files:
-                st.session_state.rag_service.process_document(file)
-            st.success(f"已成功处理 {len(uploaded_files)} 个文档")
-            # 处理完成后重置上传框：通过改变key值实现
-            st.session_state.upload_key += 1
-
-    # 2. 清空知识库（删除向量库数据+清空聊天历史，重置整个问答环境）
-    if st.button("清空知识库", type="secondary", use_container_width=True):
-        with st.spinner("正在清空知识库..."):
-            # 清空向量存储
-            st.session_state.rag_service.clear_database()
-            # 清空聊天历史
-            st.session_state.history = []
-            st.success("知识库已成功清空")
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # 主界面 - 聊天区域
 st.markdown(
